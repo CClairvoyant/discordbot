@@ -1,19 +1,26 @@
-import datetime
 import json
 import random
+from typing import Union
 
-from discord.ext import commands
-from discord.utils import get
 import discord
-import responses
+from discord import app_commands
+
+from maxammad_bot.resources.replies import responses
+from maxammad_bot.create_log import entry
+
+from maxammad_bot.resources.commands import mute
+from maxammad_bot.resources.commands import unmute
+from maxammad_bot.resources.commands import say
 
 
 async def send_message(message, user_message, is_private):
     try:
         response: str = responses.handle_response(user_message)
         if is_private is None:
-            with open("max_quotes.txt", encoding="utf-8") as f:
+            with open("maxammad_bot/resources/replies/max_quotes.txt", encoding="utf-8") as f:
                 response = random.choice(f.read().split("\n"))
+        if response is None:
+            return
         if "&ping&" in response:
             response = response.replace("&ping&", message.author.mention)
         if "&name&" in response:
@@ -29,30 +36,88 @@ async def send_message(message, user_message, is_private):
 
 
 def run_discord_bot():
-    with open("tokens.json") as f:
-        muh_token = json.load(f)["MAX_TOKEN"]
+    with open("maxammad_bot/tokens.json", encoding="utf-8") as data:
+        muh_token = json.load(data)["MAX_TOKEN"]
+
     intents = discord.Intents.default()
+    intents.presences = True
+    intents.members = True
     intents.message_content = True
-    client = discord.Client(intents=intents)
 
-    @client.event
+    bot = discord.Client(intents=intents)
+    tree = app_commands.CommandTree(bot)
+
+    with open("maxammad_bot/guild_ids.txt", encoding="utf-8") as data:
+        guilds = list(map(lambda x: discord.Object(int(x)), data.read().split("\n")))
+
+    @bot.event
     async def on_ready():
-        print(f"{client.user} is now running!")
-        # await client.get_guild(1011692357806198784).get_channel(1011698709215588372).send("Hello, I'm back")
+        print(f"{bot.user} is now running!")
 
-    @client.event
-    async def on_message(message):
-        if message.author == client.user:
+        for guild in guilds:
+            await tree.sync(guild=discord.Object(id=guild.id))
+
+        await bot.change_presence(activity=discord.Game(name="with people's feelings."))
+
+        guild_names = list(map(lambda x: x.name, bot.guilds))
+        guild_ids = list(map(lambda x: str(x.id), bot.guilds))
+
+        with open("maxammad_bot/guild_ids.json", "w", encoding="utf-8") as file:
+            ids = dict(zip(guild_names, guild_ids))
+            json.dump(ids, file, indent=2)
+
+        with open("maxammad_bot/guild_ids.txt", "w", encoding="utf-8") as file:
+            file.write("\n".join(guild_ids))
+
+        with open("maxammad_bot/guilds_info.txt", "w", encoding="utf-8") as file:
+            for guild in bot.guilds:
+                file.write(repr(guild) + "\n")
+
+    @tree.command(name="mute", description="ole vait!", guilds=guilds)
+    async def mute_command_wrapper(
+            interaction: discord.Interaction,
+            user: discord.Member,
+            seconds: int = 0,
+            minutes: int = 0,
+            hours: int = 0,
+            days: int = 0,
+            reason: str = None
+    ):
+        await mute.mute_command(interaction, user, seconds, minutes, hours, days, reason)
+
+    @tree.command(name="unmute", description="palun privaatsõnume", guilds=guilds)
+    async def unmute_wrapper(interaction: discord.Interaction, user: discord.Member, reason: str = None):
+        await unmute.unmute(interaction, user, reason)
+
+    @tree.command(name="say", description="Ma rääkida sinu eest.", guilds=guilds)
+    async def say_wrapper(interaction: discord.Interaction, message: str, replying_to: str = None):
+        await say.say(interaction, message, replying_to)
+
+    @bot.event
+    async def on_message(message: discord.Message):
+
+        # await bot.process_commands(message)
+        if not message.content:
             return
 
         username = str(message.author)
         user_message = str(message.content)
-        global channel
         channel = message.channel
 
-        print(f"[{datetime.datetime.now()}] {username} said: '{user_message}' in #{str(channel)}.")
+        server = message.guild.name.replace("/", "-")
+        if channel.category:
+            category = channel.category.name.replace("/", "-")
+        else:
+            category = ""
+        channel_name = channel.name.replace("/", "-")
 
-        if client.user.mentioned_in(message):
+        entry(server, category, channel_name,
+              f'{username}: "{user_message}"')
+
+        if message.author == bot.user:
+            return
+
+        if bot.user.mentioned_in(message):
             await send_message(message, user_message, is_private=None)
         if user_message[0] == "%":
             user_message = user_message[1:]
@@ -60,8 +125,9 @@ def run_discord_bot():
         else:
             await send_message(message, user_message, is_private=False)
 
-    @client.event
-    async def on_disconnect():
-        await client.get_guild(1011692357806198784).get_channel(1011698709215588372).send("Good night!")
+    @bot.event
+    async def on_reaction_add(reaction: discord.Reaction, user: Union[discord.Member, discord.User]):
+        if reaction.emoji.name == "tanel":
+            await reaction.message.add_reaction(reaction.emoji)
 
-    client.run(muh_token)
+    bot.run(muh_token)

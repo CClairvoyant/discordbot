@@ -14,13 +14,13 @@ def handle_response(message: str) -> str:
                "matemaatika aine Harri Lensile ja mul on hinne 1 kõik korras läbitud kursuse. " \
                "Kellele on vaja abi kirjutada mulle privaat sõnume."
 
-    if "max" in message:
+    if "maxammad" in message or "mahammad" in message or "mähämm" in message or "mähamm" in message or "mahämm" in message:
         return "Hello, may question?"
 
-    if "ping" in message or "tag" in message:
-        return "&reply&Vabandust &ping&, rohkem ära teen tagidega"
+    # if "ping" in message:
+    #     return "&reply&Vabandust &ping&, rohkem ära teen tagidega"
 
-    if "ära " in message or "Ära " in message:
+    if "alun ära " in message or "ära palun" in message:
         return "hästi ei teha rohkem vabandust palun"
 
     if "deklareer" in message:
@@ -28,7 +28,7 @@ def handle_response(message: str) -> str:
                "mis on vaja selle aine teha missuguseid ülesandeid kodune töö või mida? " \
                "Ma ei saa aru natuke selles aines. Ja arvestustöö toimub ülikoolis või kodus? Vabandust, palun kõigist."
 
-    if "aine" in message or "kursus" in message:
+    if " aine " in message or "kursus" in message:
         return random.choice(["Ma eelmisel aastal ära deklareeritud selle hulgad ained. "
                               "Ma deklareerisin sellel semestril,vabandust palun. "
                               "Okei, ma saan aru sulle &ping&, et ma loen sellel aastal sellel "
